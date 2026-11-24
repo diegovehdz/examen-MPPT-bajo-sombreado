@@ -15,21 +15,14 @@ Documentación mínima del formato de los archivos (se les entregará junto con 
 Los cuatro casos representan condiciones de sombreado parcial que generan curvas P-I con múltiples máximos locales. El algoritmo debe ser capaz de operar sin conocer de antemano cuál de los cuatro casos está activo.
 
 ## 2. Entorno de Gymnasium (Gym Env)
-Implementar un entorno personalizado q3. Métodos a implementar y evaluar
-Deben implementar y entrenar los siguientes algoritmos, de forma independiente:
+Implementar un entorno personalizado que cumpla con la interfaz de Gymnasium y que:
 
-REINFORCE (policy gradient puro).
-Actor-Critic (con red de política y red de crítico).
-PPO (Proximal Policy Optimization).
-Cross-Entropy Method (CEM) clásico.
-MLP-CEM: optimización mediante Cross-Entropy Method de los pesos de una red neuronal MLP que produce la acción (corriente). Se debe muestrear conjuntos de pesos, evaluarlos y actualizar la distribución de pesos.ue cumpla con la interfaz de Gymnasium y que:
-
-En cada episodio (o durante la ejecución continua) seleccione aleatoriamente uno de los cuatro casos de sombreado.
-Mantenga el caso activo durante un número de pasos (o un intervalo de tiempo simulado) configurable, tras el cual cambie de forma aleatoria a otro caso.
-Exponga como acción la corriente propuesta por el agente (o un incremento de corriente, según el diseño que elijan).
-Devuelva como observación  el valor de la Potencia.
-Calcule la recompensa en función de la potencia obtenida (o de una señal derivada de ella).
-No proporcione al agente el valor del máximo real de la curva (ground-truth).
+- En cada episodio (o durante la ejecución continua) seleccione aleatoriamente uno de los cuatro casos de sombreado.
+- Mantenga el caso activo durante un número de pasos (o un intervalo de tiempo simulado) configurable, tras el cual cambie de forma aleatoria a otro caso.
+- Exponga como acción la corriente propuesta por el agente (o un incremento de corriente, según el diseño que elijan).
+- Devuelva como observación  el valor de la Potencia.
+- Calcule la recompensa en función de la potencia obtenida (o de una señal derivada de ella).
+- No proporcione al agente el valor del máximo real de la curva (ground-truth).
 El entorno debe ser reutilizable para todos los métodos que se evaluarán.
 
 ## 3. Métodos a implementar y evaluar
