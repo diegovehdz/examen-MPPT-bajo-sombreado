@@ -1,6 +1,8 @@
 import numpy as np
 import gymnasium as gym
 
+np.random.seed(42)
+
 # Importar los datos
 datos0 = np.load("datasets/caso_0.npy")
 datos1 = np.load("datasets/caso_1.npy")
@@ -20,14 +22,28 @@ el critic le dice que tan buena o mala fue la accion
 I_datos = datos0[:,0]
 P_datos = datos0[:,2]
 
+ordenar_datos = np.argsort(I_datos)
+
+I_datos = I_datos[ordenar_datos]
+P_datos = P_datos[ordenar_datos]
 #print(f'Corriente {I_datos[:10]}, Potencia {datos0[:10]}')
 
+# aprende a donde conviene actuar  o sea mover la distribucion
 media = 4
+# aprende cuanto conviene explorar, para que en esos rangos si sucedio lejos un lugar con mucha potnecia podamos explorarlo
 sigma = 1.5
 
 V = 0 #Critic
 
-for i in range(30):
+print("Corriente mínima:", I_datos.min())
+print("Corriente máxima:", I_datos.max())
+print("Potencia mínima:", P_datos.min())
+print("Potencia máxima:", P_datos.max())
+
+print("Primeros pares I-P:")
+print(np.column_stack((I_datos[:10], P_datos[:10])))
+
+for i in range(1000):
     escala_P = P_datos.max() 
     distribucion = np.random.normal(loc=media, scale=sigma)
     I = np.clip(distribucion, I_datos.min(), I_datos.max()) 
@@ -38,27 +54,26 @@ for i in range(30):
     # Advantage
     advantage = reward - V
 
-    gradiente = (I - media) / sigma**2
-    A = gradiente * (reward - V)
+    gradiente = (distribucion - media) / sigma**2
 
     # Actualizacion del Actor
+    A = gradiente * (reward - V)
+
+    
     media = media + 0.01 * gradiente * advantage
 
-    sigma = sigma + 0.01 * A
-    sigma = np.abs(sigma)
-
-    advantage = reward - V
+    #sigma = ((I - media)**2 / sigma**2) -1
 
     # Actualización del Critic
     V = V + 0.01 * advantage
     
-    if i % 5 == 0:
+    if i % 100 == 0:
         print(
             f"paso {i}: I={I:.2f} "
-            f"reward={reward:.3f} "
+            f"reward={reward} "
             f"V={V:.3f} "
             f"advantage={advantage:.3f} "
-            f"media={media:.3f}"
+            f"media={media}"
         )
     
     #print(f"paso {i}: I={I:.2f}  P={P:.2f}  P_norm={P/escala_P:.3f}")
