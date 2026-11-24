@@ -51,7 +51,7 @@ for k, (ax, datos) in enumerate(zip(axs.flat, casos)):
           f"P = {np.round(P_tabla[picos], 1)} W")
 
     ax.set_title(f"caso {k}: {len(picos)} maximos locales")
-    ax.set_ylabel("(W)")
+    ax.set_ylabel("potencia (W)")
     ax.grid(alpha=0.3)
 
 for ax in axs[1]:
