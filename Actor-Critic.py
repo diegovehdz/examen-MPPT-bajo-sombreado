@@ -35,13 +35,15 @@ sigma = 1.5
 
 V = 0 #Critic
 
-print("Corriente mínima:", I_datos.min())
-print("Corriente máxima:", I_datos.max())
-print("Potencia mínima:", P_datos.min())
-print("Potencia máxima:", P_datos.max())
+#print("Corriente mínima:", I_datos.min())
+#print("Corriente máxima:", I_datos.max())
+#print("Potencia mínima:", P_datos.min())
+#print("Potencia máxima:", P_datos.max())
 
-print("Primeros pares I-P:")
-print(np.column_stack((I_datos[:10], P_datos[:10])))
+#print("Primeros pares I-P:")
+#print(np.column_stack((I_datos[:10], P_datos[:10])))
+
+alpha = 0.01
 
 for i in range(1000):
     escala_P = P_datos.max() 
@@ -54,15 +56,18 @@ for i in range(1000):
     # Advantage
     advantage = reward - V
 
-    gradiente = (distribucion - media) / sigma**2
+    gradiente_media = (distribucion - media) / sigma**2
+    gradiente_sigma = ((distribucion - media)**2 / sigma**3) - (1 / sigma)
 
     # Actualizacion del Actor
-    A = gradiente * (reward - V)
+    A = gradiente_media * (reward - V)
 
     
-    media = media + 0.01 * gradiente * advantage
+    media = media + alpha * gradiente_media * advantage
 
-    #sigma = ((I - media)**2 / sigma**2) -1
+    
+
+    sigma = sigma + alpha * advantage * gradiente_sigma
 
     # Actualización del Critic
     V = V + 0.01 * advantage
@@ -73,7 +78,8 @@ for i in range(1000):
             f"reward={reward} "
             f"V={V:.3f} "
             f"advantage={advantage:.3f} "
-            f"media={media}"
+            f"media={media} "
+            f"sigma={sigma:.3f}"
         )
     
     #print(f"paso {i}: I={I:.2f}  P={P:.2f}  P_norm={P/escala_P:.3f}")
