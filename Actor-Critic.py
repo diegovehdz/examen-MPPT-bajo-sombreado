@@ -24,23 +24,42 @@ P_datos = datos0[:,2]
 
 media = 4
 sigma = 1.5
-rng = np.random.default_rng(42)
-escala_P = P_datos.max()        
-distribucion = np.random.normal(loc=media, scale=sigma, size=10)
 
 V = 0 #Critic
-A = 0 #Actor
-for i in range(10):
+
+for i in range(30):
     escala_P = P_datos.max() 
-    distribucion = np.random.normal(loc=media, scale=sigma, size=10)
-    I = np.clip(distribucion[i], I_datos.min(), I_datos.max()) 
+    distribucion = np.random.normal(loc=media, scale=sigma)
+    I = np.clip(distribucion, I_datos.min(), I_datos.max()) 
     P = np.interp(I, I_datos, P_datos)
     # Estandarizar el valor de recompensa
     reward = P / escala_P
 
+    # Advantage
+    advantage = reward - V
+
     gradiente = (I - media) / sigma**2
-    V = V + 0.01 * (reward - V)
-    A = A + 0.01 * gradiente * (reward - V)
+    A = gradiente * (reward - V)
+
+    # Actualizacion del Actor
+    media = media + 0.01 * gradiente * advantage
+
+    sigma = sigma + 0.01 * A
+    sigma = np.abs(sigma)
+
+    advantage = reward - V
+
+    # Actualización del Critic
+    V = V + 0.01 * advantage
+    
+    if i % 5 == 0:
+        print(
+            f"paso {i}: I={I:.2f} "
+            f"reward={reward:.3f} "
+            f"V={V:.3f} "
+            f"advantage={advantage:.3f} "
+            f"media={media:.3f}"
+        )
     
     #print(f"paso {i}: I={I:.2f}  P={P:.2f}  P_norm={P/escala_P:.3f}")
     #print(f"gradiente: {gradiente}")
