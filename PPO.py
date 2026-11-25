@@ -8,7 +8,7 @@ datos2 = np.load("datasets/caso_2.npy")
 datos3 = np.load("datasets/caso_3.npy")
 
 torch.manual_seed(42)
-np.random_seed(42)
+np.random.seed(42)
 
 def log_normal(distribucion, media, var):
     return -0.5 * ((distribucion - media) / var) ** 2 - torch.log(var) - 0.5 * np.log(2 * np.pi)
@@ -24,7 +24,7 @@ def ppo(media_0, var_0, v_0, I_min, I_max, f, N=10, step=300, K=4, epsilon=0.2,
         historial = []
 
         # Paso 2: For loop
-        for i in range (step):
+        for y in range (step):
             with torch.no_grad():
                 # Paso 3: recolectar el lote trayectorias con la política vieja
                 media_old, var_old = media.clone(), var.clone()
@@ -46,6 +46,34 @@ def ppo(media_0, var_0, v_0, I_min, I_max, f, N=10, step=300, K=4, epsilon=0.2,
                 reward = torch.tensor(reward)
                 # paso 5: Se saca el advantage con el critic actual
                 advantage = reward - v
+
+                # Paso 6: Se actulaiza el actor, se crea la función clipping (PPO)
+                for z in range (K):
+                    ratio = torch.exp(log_normal(distribucion, media, var) - log_p_viejo)
+                    clipping = ((advantage >= 0) & (ratio > 1 + epsilon)) | ((advantage < 0) & (ratio < 1 - epsilon))
+                    peso = torch.where(clipping, torch.zeros_like(ratio), ratio * advantage)
+
+                    gradiente_media = (distribucion - media) / var**2
+                    gradiente_var = ((distribucion - media)**2 / var**3) - (1 / var)
+
+                    gradiente_media_ppo = (peso * gradiente_media).mean()
+                    gradiente_var_ppo = (peso * gradiente_var).mean()
+
+                    media = (media + alpha_media * gradiente_media_ppo).clamp(I_min, I_max)
+                    var = (var + alpha_var * gradiente_var_ppo).clamp(var_min, var_max)
+                
+
+                
+                # paso 7: Se actualiza el critic
+                v = v + alpha_v * (reward.mean() - v)
+
+                historial.append(dict(paso=i, media=media.item(), var=var.item(), v=v.item(),
+                                    reward=reward.mean().item(),
+                                    gradiente_media=gradiente_media_ppo.item(),
+                                    gradiente_var=gradiente_var_ppo.item(),
+                                    i=i.numpy().copy(), p=p.numpy().copy()))
+
+        return media.item(), historial
 
 
 
