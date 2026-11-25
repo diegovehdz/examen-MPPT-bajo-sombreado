@@ -98,7 +98,7 @@ class Env(gym.Env):
         return self.potencia(state, self.datos[:,0], self.datos[:,2])
     """
 
-if __init__ == "__main__":
+if __name__ == "__main__":
     env = Env(datos, steps_caso=50)
     obs, info = env.reset(seed =42)
     caso_prev = info["caso"]
