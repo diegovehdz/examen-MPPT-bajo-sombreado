@@ -46,7 +46,7 @@ V = 0 #Critic
 #print(np.column_stack((I_datos[:10], P_datos[:10])))
 
 alpha = 0.01
-"""
+
 for i in range(1000):
     escala_P = P_datos.max() 
     distribucion = np.random.normal(loc=media, scale=sigma)
@@ -83,9 +83,10 @@ for i in range(1000):
             f"media={media} "
             f"sigma={sigma:.3f}"
         )
-    """
+        print(P)
     #print(f"paso {i}: I={I:.2f}  P={P:.2f}  P_norm={P/escala_P:.3f}")
     #print(f"gradiente: {gradiente}")
-
+"""
 class ActorCrtic:
     __init__(self)
+"""
