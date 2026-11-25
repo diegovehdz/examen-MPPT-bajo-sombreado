@@ -6,16 +6,9 @@ import torch
 print(torch.cuda.is_available())  # Debe devolver True si detecta la GPU y tiene CUDA
 print(torch.version.cuda)         # Muestra la versión de CUDA incluida en tu PyTorch (ej. '12.1', '12.4')
 
-class GridWorldEnv(gym.Env):
+class Env(gym.Env):
 
-    def __init__(self, size: int = 5):
-        # The size of the square grid (5x5 by default)
-        self.size = size
-
-        # Initialize positions - will be set randomly in reset()
-        # Using -1,-1 as "uninitialized" state
-        self._agent_location = np.array([-1, -1], dtype=np.int32)
-        self._target_location = np.array([-1, -1], dtype=np.int32)
+    def __init__(self, ):
 
         # Define what the agent can observe
         # Dict space gives us structured, human-readable observations
