@@ -87,9 +87,11 @@ class Env(gym.Env):
         # gracias google por
         return np.interp(I, self.I_casos[self.caso_actual], self.P_casos[self.caso_actual], right=0.0)
 
+    
+    """
     def get_sate(self, obs):
         return None
-    """
+        
     la accion es potencia func 
 
     def get_action(self, state):
