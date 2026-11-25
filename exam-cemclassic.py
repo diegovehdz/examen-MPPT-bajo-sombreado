@@ -1,27 +1,28 @@
-import gymnasium as gym
 import numpy as np
 import matplotlib.pyplot as plt
+import random
+import torch
 import os
-import pandas as pd
+from environment import Env, datos
 
-data_path_np = "./examen-MPPT-bajo-sombreado/datasets/caso_"
-num_case = 4
+#1 seeds para reproducir
+SEED = 67 #Seed de prueba, cambiar a 42 para el final
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
 
-casos = []
+#2 Inicializar env
+env = Env(datos, steps_caso = 200, max_steps = 3000)
 
-for i in range(num_case):
-    data + str(i) = np.load(data_path_np + str(i) + ".npy")
+obs, info = env.reset(seed = SEED)
+i_min = float(env.action_space.low[0])
+i_max = float(env.action_space.high[0])
 
-
-class env_caso(gym.env):
-    def  __init__(self, casos, steps = 30, max_steps = 300):
-        super().__init__()
-
-        self.action_spce  = gym.spaces.Box(
-            low = np.array([i_min], dtype = np.float32),
-            high = np.array([i_max], dtype = np.float32),
-            dtype = np.float32
-        )
+print("Entorno ok")
+print("Caso inicial: " + str(info["caso"]))
+print("I min : " + str(i_min))
+print("I max : " + str(i_max))
+print("Potencia inicial: " + str(obs[0]))
 
 """Crear el ambiente en gymnasium -> cargo los parametros al ambiente que tiene
 ->Implemento Cross Entropy Method->creo el bucle, que va a ser:
