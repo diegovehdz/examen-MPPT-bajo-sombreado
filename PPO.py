@@ -34,3 +34,18 @@ def ppo(media_0, var_0, v_0, I_min, I_max, f, N=10, step=300, K=4, epsilon=0.2,
                 log_p_viejo = log_normal(distribucion, media_old, var_old)
 
 
+                # step 4: se estandariza reward
+                for j in range(N):
+                    if p[j].item() > escala_P:
+                        escala_P = p[j].item()
+
+                reward = []
+                for j in range(N):
+                    r = p[j].item() / escala_P
+                    reward.append(r)
+                reward = torch.tensor(reward)
+                # paso 5: Se saca el advantage con el critic actual
+                advantage = reward - v
+
+
+
