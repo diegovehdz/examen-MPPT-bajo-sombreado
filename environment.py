@@ -91,21 +91,22 @@ class Env(gym.Env):
     """
     def get_sate(self, obs):
         return None
-        
+
     la accion es potencia func 
 
     def get_action(self, state):
         return self.potencia(state, self.datos[:,0], self.datos[:,2])
     """
 
-env = Env(datos, steps_caso=50)
-obs, info = env.reset(seed =42)
-caso_prev = info["caso"]
-for _ in range(120):
-    obs, r, term, trunc, info = env.step(env.action_space.sample())
-    if info["caso"] != caso_prev:
-        print("cambio a caso", info["caso"])
-        caso_prev = info["caso"]
+if __init__ == "__main__":
+    env = Env(datos, steps_caso=50)
+    obs, info = env.reset(seed =42)
+    caso_prev = info["caso"]
+    for _ in range(120):
+        obs, r, term, trunc, info = env.step(env.action_space.sample())
+        if info["caso"] != caso_prev:
+            print("cambio a caso", info["caso"])
+            caso_prev = info["caso"]
 
 
-        
+            
