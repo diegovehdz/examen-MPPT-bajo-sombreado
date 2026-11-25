@@ -8,25 +8,36 @@ print(torch.version.cuda)         # Muestra la versión de CUDA incluida en tu P
 
 class Env(gym.Env):
 
-    def __init__(self, ):
+    def __init__(self, datos):
 
         # Define what the agent can observe
         # Dict space gives us structured, human-readable observations
-        self.observation_space = gym.spaces.Dict(
-            {
-                "agent": gym.spaces.Box(0, size - 1, shape=(2,), dtype=int),   # [x, y] coordinates
-                "target": gym.spaces.Box(0, size - 1, shape=(2,), dtype=int),  # [x, y] coordinates
-            }
-        )
+        
+        self.datos = datos
 
-        # Define what actions are available (4 directions)
-        self.action_space = gym.spaces.Discrete(4)
+        def procesar_datos(self, datos):
+            for k, datos in enumerate(casos):
+                I, V, P = datos[:, 0], datos[:, 1], datos[:, 2]
+        return datos
+        
+    
+        def curva_PI(self, datos):
+            I, P = datos[:, 0], datos[:, 2]
+            I_unica, idx = np.unique(I, return_inverse=True)           # ordenar y juntar repetidos
+            P_unica = np.bincount(idx, weights=P) / np.bincount(idx)   # promediar los repetidos
+            return np.concatenate([[0.0], I_unica]), np.concatenate([[0.0], P_unica])
 
-        # Map action numbers to actual movements on the grid
-        # This makes the code more readable than using raw numbers
-        self._action_to_direction = {
-            0: np.array([0, 1]),   # Move right (column + 1)
-            1: np.array([-1, 0]),  # Move up (row - 1)
-            2: np.array([0, -1]),  # Move left (column - 1)
-            3: np.array([1, 0]),   # Move down (row + 1)
-        }
+        def potencia(I_consulta, I_tabla, P_tabla):
+            # right = 0.0 significa que si pides más corriente que I_sc entonces el panel no entrega potencia
+            # gracias google por
+            return np.interp(I_consulta, I_tabla, P_tabla, right=0.0)
+
+        def reset(self, **kwargs):
+            obs = super().reset(**kwards)
+            return obs
+        
+        def step(self, action):
+            obs, reward,terminated, truncated, info = self.env.step(action)
+            return obs, reward, terminated, truncated, info
+
+        
