@@ -46,7 +46,7 @@ V = 0 #Critic
 #print(np.column_stack((I_datos[:10], P_datos[:10])))
 
 alpha = 0.01
-
+"""
 for i in range(1000):
     escala_P = P_datos.max() 
     distribucion = np.random.normal(loc=media, scale=sigma)
@@ -66,7 +66,6 @@ for i in range(1000):
 
     
     media = media + alpha * gradiente_media * advantage
-
     
 
     sigma = sigma + alpha * advantage * gradiente_sigma
@@ -87,6 +86,39 @@ for i in range(1000):
     #print(f"paso {i}: I={I:.2f}  P={P:.2f}  P_norm={P/escala_P:.3f}")
     #print(f"gradiente: {gradiente}")
 """
+
 class ActorCrtic:
-    __init__(self)
-"""
+    def __init__(self, media=4.0, sigma=1.5, alpha_actor=0.01, alpha_critic=0.01):
+        self.media = media
+        self.sigma = sigma
+        self.alpha_actor = alpha_actor
+        self.alpha_critic = alpha_critic
+
+        #critic
+        self.V = 0.0
+
+
+    def sigma(self):
+        return np.exp(self.log_sigma)
+
+    def actuar(self):
+        #muestrar la corriente con se hizo en las pruebas
+        return np.random.normal(self.media, self.sigma)
+
+    def actualizar(self, distribucion, reward):
+        advantage = reward - self.V
+
+        gradiente_media = (distribucion - self.media) / self.sigma**2
+        gradiente_sigma = ((distribucion - self.media)**2 / self.sigma**3) - (1 / self.sigma)
+
+        # Actualizacion del Actor - politica
+        self.media = self.media + self.alpha_actor * gradiente_media * advantage
+        self.sigma = self.sigma + self.alpha_actor * advantage * gradiente_sigma
+
+        # Actualizacion del Critic
+        self.V += self.alpha_critic * advantage
+        return advantage
+
+
+
+
