@@ -3,6 +3,9 @@ import gymnasium as gym
 
 from environment import Env, datos
 
+from pathlib import Path
+import csv
+
 SEED = 42
 np.random.seed(SEED)
 
@@ -168,3 +171,14 @@ for step in range(1000):
         break
 
 print(historial[0])
+
+ruta_csv = Path(__file__).resolve().parent / "resultados" / "historial_actor_critic.csv"
+ruta_csv.parent.mkdir(parents=True, exist_ok=True)
+
+if historial:
+    with ruta_csv.open("w", newline="", encoding="utf-8") as archivo:
+        escritor = csv.DictWriter(archivo, fieldnames=historial[0].keys())
+        escritor.writeheader()
+        escritor.writerows(historial)
+
+    print(f"Historial guardado en: {ruta_csv}")
