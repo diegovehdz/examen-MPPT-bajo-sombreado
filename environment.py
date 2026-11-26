@@ -1,21 +1,11 @@
 from typing import Optional
 import numpy as np
 import gymnasium as gym
-import torch
 from gymnasium import spaces
 
-print(torch.cuda.is_available())  # Debe devolver True si detecta la GPU y tiene CUDA
-print(torch.version.cuda)         # Muestra la versión de CUDA incluida en tu PyTorch (ej. '12.1', '12.4')
-
-np.random.seed(42)
-
-
-datos0 = np.load("datasets/caso_0.npy")
-datos1 = np.load("datasets/caso_1.npy")
-datos2 = np.load("datasets/caso_2.npy")
-datos3 = np.load("datasets/caso_3.npy")
-
-datos = [datos0, datos1, datos2, datos3]
+from pathlib import Path
+CARPETA_DATOS = Path(__file__).resolve().parent / "datasets"
+datos = [np.load(CARPETA_DATOS / f"caso_{k}.npy") for k in range(4)]
 
 
 class Env(gym.Env):
@@ -34,8 +24,10 @@ class Env(gym.Env):
 
         for caso in datos:
             orden =  np.argsort(caso[:, 0])
-            self.I_casos.append(caso[orden, 0])
-            self.P_casos.append(caso[orden, 2])
+            # la potencia en 0 A no es 0, faltaba el punto (0 A, 0 W) 
+            # y en el caso 1 cualquier corriente entre 0 y 0.30 A da 10.94 W cuando debería subir desde 0
+            self.I_casos.append(np.concatenate([[0.0], caso[orden, 0]]))
+            self.P_casos.append(np.concatenate([[0.0], caso[orden, 2]]))
 
         # encontrar el espacio de accion, encontrar el espacio de observacion en el cual vamos a trabajar
         self.I_max, self.I_min = 0, 0
@@ -54,10 +46,9 @@ class Env(gym.Env):
         
         #contar los pasos hasta llegar a cambiar de dataset
         self.t_contador = 0
-
         
 
-    def reset(self, *, seed =None):
+    def reset(self, *, seed=None, options=None):
         super().reset(seed = seed)
         indice_r = self.np_random.integers(0, len(self.datos))
         indice_r = int(indice_r)
@@ -72,7 +63,9 @@ class Env(gym.Env):
     def step(self, action):
         self.t_contador += 1
         if self.t_contador % self.steps_caso == 0:
-            self.caso_actual = int(self.np_random.integers(0, len(self.datos)))
+            # elegir OTRO caso distinto al actual
+            otros = [k for k in range(len(self.datos)) if k != self.caso_actual]
+            self.caso_actual = int(self.np_random.choice(otros))
 
         I = float(np.clip(np.asarray(action).ravel()[0], self.I_min, self.I_max)) # me daba error antes porque era un arreglo, y ocupaba un escalar para poder evaluarlo
         P = self.potencia(I)
@@ -107,6 +100,3 @@ if __name__ == "__main__":
         if info["caso"] != caso_prev:
             print("cambio a caso", info["caso"])
             caso_prev = info["caso"]
-
-
-            
