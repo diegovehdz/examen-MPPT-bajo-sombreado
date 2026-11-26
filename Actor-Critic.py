@@ -152,7 +152,7 @@ if __name__ == "__main__":
             'reward_norm': (reward / P_local_max),
             'mu(media)': mu_antes,
             'sigma(desviacion)':sigma_antes,
-            'V(critic)': V,
+            'V(critic)': V_antes,
             'advantage': advantage,
                 })
         
