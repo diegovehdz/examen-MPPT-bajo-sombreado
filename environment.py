@@ -1,39 +1,102 @@
 from typing import Optional
 import numpy as np
 import gymnasium as gym
-import torch
+from gymnasium import spaces
 
-print(torch.cuda.is_available())  # Debe devolver True si detecta la GPU y tiene CUDA
-print(torch.version.cuda)         # Muestra la versión de CUDA incluida en tu PyTorch (ej. '12.1', '12.4')
+from pathlib import Path
+CARPETA_DATOS = Path(__file__).resolve().parent / "datasets"
+datos = [np.load(CARPETA_DATOS / f"caso_{k}.npy") for k in range(4)]
 
-class GridWorldEnv(gym.Env):
 
-    def __init__(self, size: int = 5):
-        # The size of the square grid (5x5 by default)
-        self.size = size
+class Env(gym.Env):
 
-        # Initialize positions - will be set randomly in reset()
-        # Using -1,-1 as "uninitialized" state
-        self._agent_location = np.array([-1, -1], dtype=np.int32)
-        self._target_location = np.array([-1, -1], dtype=np.int32)
+    def __init__(self, datos, steps_caso = 10,max_steps = 100,):
 
-        # Define what the agent can observe
-        # Dict space gives us structured, human-readable observations
-        self.observation_space = gym.spaces.Dict(
-            {
-                "agent": gym.spaces.Box(0, size - 1, shape=(2,), dtype=int),   # [x, y] coordinates
-                "target": gym.spaces.Box(0, size - 1, shape=(2,), dtype=int),  # [x, y] coordinates
-            }
-        )
+        super().__init__(  )
+        
+        # lista de los 4 casos
+        self.datos = datos
 
-        # Define what actions are available (4 directions)
-        self.action_space = gym.spaces.Discrete(4)
+        self.max_steps = max_steps
+        self.steps_caso =  steps_caso
 
-        # Map action numbers to actual movements on the grid
-        # This makes the code more readable than using raw numbers
-        self._action_to_direction = {
-            0: np.array([0, 1]),   # Move right (column + 1)
-            1: np.array([-1, 0]),  # Move up (row - 1)
-            2: np.array([0, -1]),  # Move left (column - 1)
-            3: np.array([1, 0]),   # Move down (row + 1)
-        }
+        self.I_casos, self.P_casos = [], []
+
+        for caso in datos:
+            orden =  np.argsort(caso[:, 0])
+            # la potencia en 0 A no es 0, faltaba el punto (0 A, 0 W) 
+            # y en el caso 1 cualquier corriente entre 0 y 0.30 A da 10.94 W cuando debería subir desde 0
+            self.I_casos.append(np.concatenate([[0.0], caso[orden, 0]]))
+            self.P_casos.append(np.concatenate([[0.0], caso[orden, 2]]))
+
+        # encontrar el espacio de accion, encontrar el espacio de observacion en el cual vamos a trabajar
+        self.I_max, self.I_min = 0, 0
+        for i in datos:
+            I, V, P = i[:, 0], i[:, 1], i[:, 2]
+            self.I_max = max(self.I_max,np.max(I))
+            self.I_min = min(self.I_min, np.min(I))
+
+
+        # El espacio es continuo - https://gymnasium.farama.org/api/spaces/
+        self.observation_space = spaces.Box(0, 10000, shape=(1,)) #
+        self.action_space = spaces.Box(self.I_min, self.I_max, shape=(1,))
+
+
+        self.caso_actual = None
+        
+        #contar los pasos hasta llegar a cambiar de dataset
+        self.t_contador = 0
+        
+
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed = seed)
+        indice_r = self.np_random.integers(0, len(self.datos))
+        indice_r = int(indice_r)
+        self.caso_actual = indice_r
+
+        self.t_contador = 0
+        I_inical = 4.2 #numero arbitrario
+
+        P_evaluado = self.potencia(I_inical)
+        return np.array([P_evaluado], dtype=np.float32), {"caso": indice_r}
+
+    def step(self, action):
+        self.t_contador += 1
+        if self.t_contador % self.steps_caso == 0:
+            # elegir OTRO caso distinto al actual
+            otros = [k for k in range(len(self.datos)) if k != self.caso_actual]
+            self.caso_actual = int(self.np_random.choice(otros))
+
+        I = float(np.clip(np.asarray(action).ravel()[0], self.I_min, self.I_max)) # me daba error antes porque era un arreglo, y ocupaba un escalar para poder evaluarlo
+        P = self.potencia(I)
+        obs = np.array([P], dtype=np.float32)
+        truncated = self.t_contador >= self.max_steps
+
+        return obs, float(P), False, truncated, {"caso": self.caso_actual, "I": I}
+    
+
+    def potencia(self, I):
+        # right = 0.0 significa que si pides más corriente que I_sc entonces el panel no entrega potencia
+        # gracias google por
+        return np.interp(I, self.I_casos[self.caso_actual], self.P_casos[self.caso_actual], right=0.0)
+
+    
+    """
+    def get_sate(self, obs):
+        return None
+
+    la accion es potencia func 
+
+    def get_action(self, state):
+        return self.potencia(state, self.datos[:,0], self.datos[:,2])
+    """
+
+if __name__ == "__main__":
+    env = Env(datos, steps_caso=50)
+    obs, info = env.reset(seed =42)
+    caso_prev = info["caso"]
+    for _ in range(120):
+        obs, r, term, trunc, info = env.step(env.action_space.sample())
+        if info["caso"] != caso_prev:
+            print("cambio a caso", info["caso"])
+            caso_prev = info["caso"]
