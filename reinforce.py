@@ -3,6 +3,11 @@ import numpy as np
 import torch
 from environment import Env, datos
 from collections import deque
+import csv
+import math
+from pathlib import Path
+
+CARPETA_RESULTADOS = Path(__file__).resolve().parent / "resultados"
 
 class PoliticaGaussiana:
     """
@@ -238,6 +243,55 @@ def entrenar(env, politica, n_actualizaciones=300, n_muestras=10, alpha_mu=0.3, 
 
     return historial
 
+def historial_por_evaluacion(historial, I_max):
+    """
+    convierte el historial (1 registro por batch) al formato de actor_critic.py y gif.py
+    1 registro por evaluacion, con las mismas claves que usa gen_gif
+
+    REINFORCE no tiene critico: en 'V(critic) va la baseline (el promedio del batch),
+    normalizada igual que en actor_critic: potencia / maxima potencia vista hasta ese momento.
+    la ventaja tambien se calcula como en actor_critic: reward_norm - V
+    """
+    registros = []
+    P_max_visto = 1e-8
+    step = 0
+    for h in historial:
+        P_max_visto = max(P_max_visto, max(h["potencias"]))
+        baseline = h["recompensa_media"] / P_max_visto
+
+        for I, P, caso in zip(h["corrientes"], h["potencias"], h["casos"]):
+            reward_norm = P / P_max_visto
+            registros.append({
+                # mismas de hector jejej
+                "step": step,
+                "caso": caso,                               # SOLO para graficar
+                "I(Corriente)": min(max(I, 0.0), I_max),    # la corriente que aplico el entorno (recortada)
+                "P(Potencia)": P,
+                "reward_norm": reward_norm,
+                "mu(media)": h["mu"],
+                "sigma(desviacion)": h["sigma"],
+                "V(critic)": baseline,                      # baseline de REINFORCE, no hay critico
+                "advantage": reward_norm - baseline,        # que tanto supero la muestra a la baseline
+                # extras que no usa el agente
+                "paso": h["paso"],
+                "grad_mu": h["grad_mu"],
+                "norma_grad": h["norma_grad"],
+                "deteccion": h["deteccion"] or "",
+                "convergido": h["convergido"],
+            })
+            step += 1
+    return registros
+
+
+def guardar_historial_csv(registros, ruta):
+    # igual que el otro pero para reinforce
+    ruta = Path(ruta)
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    with ruta.open("w", newline="", encoding="utf-8") as archivo:
+        escritor = csv.DictWriter(archivo, fieldnames=registros[0].keys())
+        escritor.writeheader()
+        escritor.writerows(registros)
+    print(f"historial guardado en: {ruta}")
 
 if __name__ == "__main__":
     SEED = 0
@@ -268,6 +322,17 @@ if __name__ == "__main__":
               f"|grad| {h['norma_grad']:.3f}" + (f"  <-- {marca}" if marca else ""))
     print(f"\nTotal: {historial[-1]['evaluaciones']} evaluaciones, "
           f"recompensa acumulada {historial[-1]['recompensa_acumulada']:.0f}")
+    
+    
+    # carambolas
+    registros = historial_por_evaluacion(historial, env.I_max)
+    guardar_historial_csv(registros, CARPETA_RESULTADOS / "historial_reinforce.csv")
+
+    from gif import gen_gif  #  lo tuve que mover acá porque
+    # gif.py tiene from actor_critic import historial hasta arriba, y en actor_critic.py el if __name__ == "__main__": está comentado 
+    # soo importar gen_gif corre el entrenamiento completo de actor-critic
+    gen_gif(datos, historial=registros, salida=str(CARPETA_RESULTADOS), fpd=10, cada=10,
+            muestras=10, nombre_salida="reinforce.gif")
     
     
     # con criterio de paro aplicado: entrenar en cada caso por separado hasta que converge
