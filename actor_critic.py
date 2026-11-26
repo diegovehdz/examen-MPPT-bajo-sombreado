@@ -8,6 +8,7 @@ import torch
 
 SEED = 42
 np.random.seed(SEED)
+torch.manual_seed(SEED)
 
 # Importar los datos
 datos0 = np.load("datasets/caso_0.npy")
