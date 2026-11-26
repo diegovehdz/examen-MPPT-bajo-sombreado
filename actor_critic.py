@@ -1,5 +1,4 @@
 import numpy as np
-import gymnasium as gym
 from collections import deque
 from environment import Env, datos
 
@@ -126,7 +125,7 @@ class ActorCrtic:
         return np.exp(self.log_sigma) # para que si se resta por un numero grande se vuelva positivo y no truene np.random.normal 
 
     def actuar(self):
-        # muestreo con torch: I = media + sigma * epsilon
+        # muestreo con torch: I = media + sigma * epsilon; no cambia nada de usar torch a usar np.random.normal
         return float(self.media + self.sigma * torch.randn(1).item())
 
     def reabrir_exploracion(self):
