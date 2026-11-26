@@ -3,6 +3,8 @@ import torch
 from torch.distributions import Normal
 from environment import Env, datos
 from gif import gen_gif
+from pathlib import Path
+import csv
 
 datos0 = np.load("datasets/caso_0.npy")
 datos1 = np.load("datasets/caso_1.npy")
@@ -105,8 +107,19 @@ if __name__ == "__main__":
         K=4,
     )
     print(media_final, historial[-1])
+
+    ruta_csv = Path(__file__).resolve().parent / "resultados" / "historial_ppo.csv"
+    ruta_csv.parent.mkdir(parents=True, exist_ok=True)
+    if historial:
+        with ruta_csv.open("w", newline="", encoding="utf-8") as archivo:
+            escritor = csv.DictWriter(archivo, fieldnames=historial[0].keys())
+            escritor.writeheader()
+            escritor.writerows(historial)
+        print(f"Historial guardado en: {ruta_csv}")
+
     gen_gif(datos, historial=historial, salida='resultados',
         fpd=8, cada=2, muestras=10, nombre_salida='ppo.gif')
+
 
 
 
