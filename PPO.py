@@ -2,6 +2,7 @@ import numpy as np
 import torch 
 from torch.distributions import Normal
 from environment import Env, datos
+from gif import gen_gif
 
 datos0 = np.load("datasets/caso_0.npy")
 datos1 = np.load("datasets/caso_1.npy")
@@ -34,6 +35,19 @@ def ppo(media_0, var_0, v_0, I_min, I_max, env, N=10, step=300, K=4, epsilon=0.2
                 p = []
                 for x in i:
                     obs, reward, terminated, truncated, info = env.step(np.array([float(x)]))
+                    escala_P = max(escala_P, reward)
+                    reward_norm = reward / escala_P
+                    historial.append({
+                        'step': y,
+                        'caso': info["caso"],
+                        'I(Corriente)': info["I"],
+                        'P(Potencia)': reward,
+                        'reward_norm': reward_norm,
+                        'mu(media)': media_old.item(),
+                        'sigma(desviacion)': var_old.item(),
+                        'V(critic)': v.item(),
+                        'advantage': reward_norm - v.item(),
+                    })
                     p.append(reward)
                 p = torch.tensor(p)
                 log_p_viejo = log_normal(distribucion, media_old, var_old)
@@ -72,12 +86,6 @@ def ppo(media_0, var_0, v_0, I_min, I_max, env, N=10, step=300, K=4, epsilon=0.2
                 # paso 7: Se actualiza el critic
                 v = v + alpha_v * (reward.mean() - v)
 
-                historial.append(dict(paso=i, media=media.item(), var=var.item(), v=v.item(),
-                                    reward=reward.mean().item(),
-                                    gradiente_media=gradiente_media_ppo.item(),
-                                    gradiente_var=gradiente_var_ppo.item(),
-                                    i=i.numpy().copy(), p=p.numpy().copy()))
-
         return media.item(), historial
 
 if __name__ == "__main__":
@@ -97,6 +105,9 @@ if __name__ == "__main__":
         K=4,
     )
     print(media_final, historial[-1])
+    gen_gif(datos, historial=historial, salida='resultados',
+        fpd=8, cada=2, muestras=10, nombre_salida='ppo.gif')
+
 
 
 
