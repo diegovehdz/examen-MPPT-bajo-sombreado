@@ -134,7 +134,7 @@ historial = []
 #if __name__ == "__main__": 
 env_mppt = Env(datos, steps_caso=50, max_steps=1000)
 obs, info = env_mppt.reset(seed=SEED)
-agente = ActorCrtic(media=3.8, sigma=0.2, alpha_actor=0.09, alpha_critic=0.09)
+agente = ActorCrtic(media=1.2, sigma=0.2, alpha_actor=0.09, alpha_critic=0.09)
 P_local_max = 1e-8 # un valor extremadamente bajo para que lo cambie por el maximo local que se vea
 
 for step in range(1000):
