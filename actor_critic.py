@@ -3,6 +3,9 @@ import gymnasium as gym
 
 from environment import Env, datos
 
+from pathlib import Path
+import csv
+
 SEED = 42
 np.random.seed(SEED)
 
@@ -128,43 +131,54 @@ class ActorCrtic:
 
 
 historial = []
-if __name__ == "__main__": 
-    env_mppt = Env(datos, steps_caso=50, max_steps=1000)
-    obs, info = env_mppt.reset(seed=SEED)
-    agente = ActorCrtic(media=3.8, sigma=0.2, alpha_actor=0.09, alpha_critic=0.09)
-    P_local_max = 1e-8 # un valor extremadamente bajo para que lo cambie por el maximo local que se vea
+#if __name__ == "__main__": 
+env_mppt = Env(datos, steps_caso=50, max_steps=1000)
+obs, info = env_mppt.reset(seed=SEED)
+agente = ActorCrtic(media=3.8, sigma=0.2, alpha_actor=0.09, alpha_critic=0.09)
+P_local_max = 1e-8 # un valor extremadamente bajo para que lo cambie por el maximo local que se vea
 
-    for step in range(1000):
-        mu_antes = agente.media
-        sigma_antes = agente.sigma
-        V_antes = agente.V
+for step in range(1000):
+    mu_antes = agente.media
+    sigma_antes = agente.sigma
+    V_antes = agente.V
 
-        accion = agente.actuar()
-        obs, reward, terminated, truncated, info = env_mppt.step(np.array([accion]))
-        P_local_max = max(P_local_max, reward)
-        advantage = agente.actualizar(accion, reward / P_local_max)
+    accion = agente.actuar()
+    obs, reward, terminated, truncated, info = env_mppt.step(np.array([accion]))
+    P_local_max = max(P_local_max, reward)
+    advantage = agente.actualizar(accion, reward / P_local_max)
 
-        historial.append({
-            'step':step,
-            'caso':info["caso"],
-            'I(Corriente)': info["I"],
-            'P(Potencia)': reward,
-            'reward_norm': (reward / P_local_max),
-            'mu(media)': mu_antes,
-            'sigma(desviacion)':sigma_antes,
-            'V(critic)': V,
-            'advantage': advantage,
-                })
-        
-        if step % 20 == 0:
-            print(f"Paso: {step}, Caso: {info['caso']}, I: {info['I']:.2f}, "
-                  f"P: {reward:.1f}, media: {agente.media:.2f}, "
-                  f"sigma: {agente.sigma:.3f}, V: {agente.V:.3f}, adv: {advantage:.3f}")
+    historial.append({
+        'step':step,
+        'caso':info["caso"],
+        'I(Corriente)': info["I"],
+        'P(Potencia)': reward,
+        'reward_norm': (reward / P_local_max),
+        'mu(media)': mu_antes,
+        'sigma(desviacion)':sigma_antes,
+        'V(critic)': V_antes,
+        'advantage': advantage,
+            })
+    """
+    if step % 20 == 0:
+        print(f"Paso: {step}, Caso: {info['caso']}, I: {info['I']:.2f}, "
+            f"P: {reward:.1f}, media: {agente.media:.2f}, "
+            f"sigma: {agente.sigma:.3f}, V: {agente.V:.3f}, adv: {advantage:.3f}")
+    """
+    
 
-        
+    if terminated or truncated:
+        print("Entorno terminado")
+        break
 
-        if terminated or truncated:
-            print("Entorno terminado")
-            break
+print(historial[0])
 
-    print(historial[0])
+ruta_csv = Path(__file__).resolve().parent / "resultados" / "historial_actor_critic.csv"
+ruta_csv.parent.mkdir(parents=True, exist_ok=True)
+
+if historial:
+    with ruta_csv.open("w", newline="", encoding="utf-8") as archivo:
+        escritor = csv.DictWriter(archivo, fieldnames=historial[0].keys())
+        escritor.writeheader()
+        escritor.writerows(historial)
+
+    print(f"Historial guardado en: {ruta_csv}")
