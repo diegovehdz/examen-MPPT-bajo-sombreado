@@ -182,7 +182,7 @@ class CriterioParo:
 
 def entrenar(env, politica, n_actualizaciones=300, n_muestras=10, alpha_mu=0.3, alpha_sigma=0.1, 
              detector=None, sigma_reapertura=1.5,
-             criterio=None):
+             criterio=None, parar_al_converger=False):
     """
     ciclo de entrenamiento
 
@@ -232,6 +232,9 @@ def entrenar(env, politica, n_actualizaciones=300, n_muestras=10, alpha_mu=0.3, 
 
         if info["truncado"]:  # el entorno llego a max_steps
             break
+        
+        if convergido and parar_al_converger:  # criterio de paro cumplido wuuuuu
+            break
 
     return historial
 
@@ -265,6 +268,24 @@ if __name__ == "__main__":
               f"|grad| {h['norma_grad']:.3f}" + (f"  <-- {marca}" if marca else ""))
     print(f"\nTotal: {historial[-1]['evaluaciones']} evaluaciones, "
           f"recompensa acumulada {historial[-1]['recompensa_acumulada']:.0f}")
+    
+    
+    # con criterio de paro aplicado: entrenar en cada caso por separado hasta que converge
+    print("\n")
+    print("cada caso por separado hasta cumplir el criterio de paro:")
+    for k in range(len(datos)):
+        torch.manual_seed(SEED)
+        env_k = Env([datos[k]], steps_caso=10**9, max_steps=10**6)
+        env_k.reset(seed=SEED)
+        politica_k = PoliticaGaussiana(I_max=env.I_max, sigma_inicial=1.0)  # mismo rango
+        hist_k = entrenar(env_k, politica_k, n_actualizaciones=400, n_muestras=10,
+                          detector=DetectorCambio(), criterio=CriterioParo(),
+                          parar_al_converger=True)
+        fin = hist_k[-1]
+        estado = "convergio" if fin["convergido"] else "sorry... you're NOT a sigma"
+        
+        print(f"caso {k}: {estado} en {fin['evaluaciones']} evaluaciones | "
+              f"mu {politica_k.mu:.2f} A | sigma {politica_k.sigma:.2f} | P media {fin['recompensa_media']:.1f} W")
     
     
 """
@@ -404,6 +425,12 @@ paso 280 | eval 2810 | caso 0 | mu 6.57 A | sigma 0.15 | P media  200.3 W | |gra
 paso 290 | eval 2910 | caso 0 | mu 6.65 A | sigma 0.10 | P media  200.7 W | |grad| 1.692
 paso 296 | eval 2970 | caso 0 | mu 6.66 A | sigma 0.10 | P media  200.6 W | |grad| 1.020  <-- convergio
 
-phewwwww
+Total: 3000 evaluaciones, recompensa acumulada 377705
 
+
+cada caso por separado hasta cumplir el criterio de paro:
+caso 0: convergio en 560 evaluaciones | mu 6.62 A | sigma 0.10 | P media 200.7 W
+caso 1: convergio en 780 evaluaciones | mu 5.57 A | sigma 0.10 | P media 175.2 W
+caso 2: convergio en 1270 evaluaciones | mu 2.97 A | sigma 0.10 | P media 40.7 W
+caso 3: convergio en 610 evaluaciones | mu 5.15 A | sigma 0.10 | P media 74.7 W
 """
