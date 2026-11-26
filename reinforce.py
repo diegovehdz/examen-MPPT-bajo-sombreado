@@ -2,7 +2,7 @@ import math
 import numpy as np
 import torch
 from environment import Env, datos
-
+from collections import deque
 
 class PoliticaGaussiana:
     """
@@ -147,8 +147,42 @@ class DetectorCambio:
         self.P_ref = (1 - self.beta) * self.P_ref + self.beta * P  # promedio de la potencia media del batch anterior y del batch actual
         return None
 
+class CriterioParo:
+    """
+    para que converja el entrenamiento, la politica tiene que dejar de explorar cuando ya casi no explora
+    la política convergió cuando en las últimas n actualizaciones
+        - sigma se mantuvo chica. o sea ya casi no explora. uso 0.15 y no 0.1 porque sigma_min es 0.1 y no baja de ahí, 
+        si se queda en 0.1A no hay forma de saber si ya convergió o no (sigma_conv = 0.15)
+        - mu se movió menos de 0.05A entre su valor mas alto y el mas bajo o sea que el gradiente ya no la empuja a ningún lado (max - min < tol_mu)
+        
+    de todos modos no sabemos el pico global del caso, solo sabemos que la politica ya no se mueve y ya casi no explora
+    """
 
-def entrenar(env, politica, n_actualizaciones=300, n_muestras=10, alpha_mu=0.3, alpha_sigma=0.1, detector=None, sigma_reapertura=1.5):
+    def __init__(self, n=10, sigma_conv=0.15, tol_mu=0.05):
+        self.n = n
+        self.sigma_conv = sigma_conv  # un poco arriba de sigma_min = 0.1, porque sigma nunca baja de ahi
+        self.tol_mu = tol_mu          # en amperes
+        self.mus = deque(maxlen=n)     # solo guarda los ultimos n valores. la ventana de mu y sigma para ver si convergio
+        self.sigmas = deque(maxlen=n)
+
+    def reiniciar(self):
+        # despues de reabrir la exploracion empieza otra busqueda
+        # la ventana vieja ya no sirve
+        self.mus.clear()
+        self.sigmas.clear()
+
+    def convergio(self, mu, sigma):
+        self.mus.append(mu)
+        self.sigmas.append(sigma)
+        if len(self.mus) < self.n:  # todavia no hay suficiente historia
+            return False
+        sigma_chica = max(self.sigmas) <= self.sigma_conv
+        mu_quieta = (max(self.mus) - min(self.mus)) < self.tol_mu
+        return sigma_chica and mu_quieta
+
+def entrenar(env, politica, n_actualizaciones=300, n_muestras=10, alpha_mu=0.3, alpha_sigma=0.1, 
+             detector=None, sigma_reapertura=1.5,
+             criterio=None):
     """
     ciclo de entrenamiento
 
@@ -170,6 +204,14 @@ def entrenar(env, politica, n_actualizaciones=300, n_muestras=10, alpha_mu=0.3, 
         deteccion = detector.revisar(recompensas, sigma) if detector is not None else None
         if deteccion is not None:
             politica.reabrir_exploracion(sigma_reapertura)
+        
+        # criterio de paro: revisar si la politica ya convergio
+        convergido = False
+        if criterio is not None:
+            if deteccion is not None:
+                criterio.reiniciar()
+            else:
+                convergido = criterio.convergio(mu, sigma)
 
         evaluaciones += n_muestras
         recompensa_acumulada += recompensas.sum().item()
@@ -183,6 +225,7 @@ def entrenar(env, politica, n_actualizaciones=300, n_muestras=10, alpha_mu=0.3, 
             "corrientes": corrientes.tolist(),
             "potencias": recompensas.tolist(),
             "deteccion": deteccion,  # none, cambio o sin_info
+            "convergido": convergido,
             "casos": info["casos"],  # SOLO para graficar, el agente no lo usa !!!!!!!!!!!
             **metricas,              # grad_mu, grad_log_sigma, norma_grad, paso_mu, recompensa_media
         })
@@ -203,17 +246,23 @@ if __name__ == "__main__":
     politica = PoliticaGaussiana(I_max=env.I_max, sigma_inicial=1.0)
 
     detector = DetectorCambio(umbral=0.3, beta=0.3, sigma_vigilar=0.3)
+    
+    criterio = CriterioParo(n=10, sigma_conv=0.15, tol_mu=0.05)
 
     historial = entrenar(env, politica, n_actualizaciones=300, n_muestras=10,
                          alpha_mu=0.3, alpha_sigma=0.1,
-                         detector=detector, sigma_reapertura=1.5)
+                         detector=detector, sigma_reapertura=1.5, criterio=criterio)
 
+    convergido_antes = False
     for h in historial:
-        if h["paso"] % 10 != 0 and h["deteccion"] is None:
-            continue  # imprimir 1 de cada 10 + donde detecta un cambio de caso
+        nueva_conv = h["convergido"] and not convergido_antes
+        convergido_antes = h["convergido"]
+        marca = h["deteccion"] or ("convergio" if nueva_conv else None)
+        if h["paso"] % 10 != 0 and marca is None:
+            continue  # imprimir 1 de cada 10 + donde detecta un cambio de caso o converge
         print(f"paso {h['paso']:3d} | eval {h['evaluaciones']:4d} | caso {h['casos'][-1]} | "
               f"mu {h['mu']:.2f} A | sigma {h['sigma']:.2f} | P media {h['recompensa_media']:6.1f} W | "
-              f"|grad| {h['norma_grad']:.3f}" + (f"  <-- {h['deteccion']}" if h["deteccion"] else ""))
+              f"|grad| {h['norma_grad']:.3f}" + (f"  <-- {marca}" if marca else ""))
     print(f"\nTotal: {historial[-1]['evaluaciones']} evaluaciones, "
           f"recompensa acumulada {historial[-1]['recompensa_acumulada']:.0f}")
     
@@ -320,4 +369,41 @@ yo creo que si se le da chance de explorar con sigma grande puede encontrar el p
 igual y se puede hacer un detector de cambio de caso más inteligente, pero no hay tiempo xd
 con solo la potencia observada no hay forma de saber que existe un pico mas alto sin salir a explorar
 puede ser si se le da la info al agente pero aparte de que es trampa supongo que tampoco es realista para el problema irl
+"""
+
+"""
+paso   0 | eval   10 | caso 3 | mu 4.45 A | sigma 1.00 | P media   63.2 W | |grad| 0.562
+paso  10 | eval  110 | caso 3 | mu 4.28 A | sigma 0.78 | P media   61.3 W | |grad| 1.484
+paso  20 | eval  210 | caso 3 | mu 4.40 A | sigma 0.57 | P media   63.9 W | |grad| 1.347
+paso  30 | eval  310 | caso 3 | mu 4.96 A | sigma 0.41 | P media   68.6 W | |grad| 1.050
+paso  40 | eval  410 | caso 3 | mu 4.88 A | sigma 0.24 | P media   69.3 W | |grad| 3.458
+paso  50 | eval  510 | caso 1 | mu 5.05 A | sigma 0.16 | P media  166.6 W | |grad| 7.394  <-- cambio
+paso  60 | eval  610 | caso 1 | mu 5.07 A | sigma 0.94 | P media  144.0 W | |grad| 0.410
+paso  70 | eval  710 | caso 1 | mu 4.81 A | sigma 0.60 | P media  158.4 W | |grad| 1.623
+paso  80 | eval  810 | caso 1 | mu 5.14 A | sigma 0.41 | P media  152.8 W | |grad| 2.064
+paso  90 | eval  910 | caso 1 | mu 5.18 A | sigma 0.26 | P media  171.6 W | |grad| 1.750
+paso 100 | eval 1010 | caso 2 | mu 5.45 A | sigma 0.18 | P media    0.0 W | |grad| 0.000  <-- sin_info
+paso 110 | eval 1110 | caso 2 | mu 2.74 A | sigma 1.69 | P media   23.3 W | |grad| 0.196
+paso 120 | eval 1210 | caso 2 | mu 1.92 A | sigma 1.22 | P media   20.7 W | |grad| 0.873
+paso 130 | eval 1310 | caso 2 | mu 1.90 A | sigma 0.82 | P media   30.7 W | |grad| 0.807
+paso 140 | eval 1410 | caso 2 | mu 1.92 A | sigma 0.66 | P media   34.5 W | |grad| 0.696
+paso 150 | eval 1510 | caso 0 | mu 2.15 A | sigma 0.61 | P media   80.8 W | |grad| 1.223
+paso 160 | eval 1610 | caso 0 | mu 3.56 A | sigma 0.62 | P media  129.2 W | |grad| 0.701
+paso 170 | eval 1710 | caso 0 | mu 4.98 A | sigma 0.58 | P media  165.7 W | |grad| 1.469
+paso 180 | eval 1810 | caso 0 | mu 6.10 A | sigma 0.44 | P media  196.3 W | |grad| 1.140
+paso 190 | eval 1910 | caso 0 | mu 6.46 A | sigma 0.31 | P media  200.1 W | |grad| 0.155
+paso 200 | eval 2010 | caso 1 | mu 6.54 A | sigma 0.20 | P media   99.6 W | |grad| 2.257  <-- cambio
+paso 210 | eval 2110 | caso 1 | mu 4.88 A | sigma 1.01 | P media  130.6 W | |grad| 0.708
+paso 220 | eval 2210 | caso 1 | mu 5.08 A | sigma 0.72 | P media  155.7 W | |grad| 1.032
+paso 230 | eval 2310 | caso 1 | mu 5.18 A | sigma 0.42 | P media  161.3 W | |grad| 1.545
+paso 240 | eval 2410 | caso 1 | mu 5.43 A | sigma 0.27 | P media  156.2 W | |grad| 2.849
+paso 250 | eval 2510 | caso 0 | mu 5.29 A | sigma 0.18 | P media  177.4 W | |grad| 7.427
+paso 260 | eval 2610 | caso 0 | mu 5.93 A | sigma 0.24 | P media  192.0 W | |grad| 4.813
+paso 270 | eval 2710 | caso 0 | mu 6.42 A | sigma 0.25 | P media  199.0 W | |grad| 3.367
+paso 280 | eval 2810 | caso 0 | mu 6.57 A | sigma 0.15 | P media  200.3 W | |grad| 4.751
+paso 290 | eval 2910 | caso 0 | mu 6.65 A | sigma 0.10 | P media  200.7 W | |grad| 1.692
+paso 296 | eval 2970 | caso 0 | mu 6.66 A | sigma 0.10 | P media  200.6 W | |grad| 1.020  <-- convergio
+
+phewwwww
+
 """
