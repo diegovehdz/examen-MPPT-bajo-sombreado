@@ -102,7 +102,7 @@ def actualizar_politica(politica, optimizador, corrientes, recompensas):
     
 # torch.optim.Adam(politica.parameters(), lr=0.1)
 
-"""
+r"""
 .venv\Scripts\python.exe -c "import torch; torch.manual_seed(0); from environment import Env, datos; from reinforce import PoliticaGaussiana, evaluar, actualizar_politica; env = Env(datos, steps_caso=500, max_steps=10000); env.reset(seed=0); p = PoliticaGaussiana(I_max=env.I_max); opt = torch.optim.Adam(p.parameters(), lr=0.1); print('antes:', [round(x.item(), 3) for x in p()]); I, r, _ = evaluar(env, p); print(actualizar_politica(p, opt, I, r)); print('despues:', [round(x.item(), 3) for x in p()])"
 
 OUT:
@@ -113,7 +113,7 @@ despues: [4.229, 0.905]
 mu se movio muy poquito a la izquierda
 """
 
-"""
+r"""
 .venv\Scripts\python.exe -c "import torch; torch.manual_seed(0); from environment import Env, datos; from reinforce import PoliticaGaussiana, evaluar, actualizar_politica; env = Env(datos, steps_caso=500, max_steps=10000); env.reset(seed=0); p = PoliticaGaussiana(I_max=env.I_max); opt = torch.optim.Adam(p.parameters(), lr=0.1); h = [actualizar_politica(p, opt, *evaluar(env, p)[:2]) for _ in range(30)]; print('mu, sigma:', [round(x.item(), 3) for x in p()], '| R media:', round(h[0]['recompensa_media'], 1), '->', round(h[-1]['recompensa_media'], 1))"
 
 OUT:
